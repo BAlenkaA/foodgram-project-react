@@ -1,7 +1,7 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
 
-from .models import CustomUser, Ingredients, Recipe, Tag, IngredientRecipe, RecipeTags, Favorite
+from .models import (CustomUser, Favorite, IngredientRecipe, Ingredients,
+                     Recipe, RecipeTags, Tag)
 
 admin.site.empty_value_display = 'Не задано'
 
@@ -64,7 +64,8 @@ class RecipeAdmin(admin.ModelAdmin):
     inlines = (IngredientRecipeInline, RecipeTagsInline)
 
     def display_ingredients(self, obj):
-        return ", ".join([f'{ingredient.name} ({ingredient.measurement_unit})' for ingredient in obj.ingredients.all()])
+        return ", ".join([f'{ingredient.name} ({ingredient.measurement_unit})'
+                          for ingredient in obj.ingredients.all()])
     display_ingredients.short_description = 'Ингредиенты'
 
     def display_tags(self, obj):
@@ -75,8 +76,8 @@ class RecipeAdmin(admin.ModelAdmin):
         return Favorite.objects.filter(id_recipe=obj).count()
     display_favorites.short_description = 'Добавлено в избранное'
 
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Tag, TagAdmin)
 admin.site.register(Ingredients, IngredientsAdmin)
 admin.site.register(Recipe, RecipeAdmin)
-

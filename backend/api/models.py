@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -30,7 +29,8 @@ class Tag(models.Model):
 
 class Ingredients(models.Model):
     name = models.CharField(max_length=200, verbose_name='Название')
-    measurement_unit = models.CharField(max_length=200, verbose_name='Единицы измерения')
+    measurement_unit = models.CharField(
+        max_length=200, verbose_name='Единицы измерения')
 
     def __str__(self):
         return self.name
@@ -42,11 +42,13 @@ class Ingredients(models.Model):
 
 
 class Recipe(models.Model):
-    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name='Автор')
+    author = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, verbose_name='Автор')
     name = models.CharField(max_length=200, verbose_name='Название')
     image = models.ImageField(upload_to='api/images/')
     text = models.TextField()
-    ingredients = models.ManyToManyField(Ingredients, through='IngredientRecipe')
+    ingredients = models.ManyToManyField(
+        Ingredients, through='IngredientRecipe')
     tags = models.ManyToManyField(Tag, through='RecipeTags')
     cooking_time = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -62,12 +64,22 @@ class Recipe(models.Model):
 
 
 class RecipeTags(models.Model):
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name='recipetags', verbose_name='Тег')
+    tag = models.ForeignKey(
+        Tag,
+        on_delete=models.CASCADE,
+        related_name='recipetags',
+        verbose_name='Тег'
+    )
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
 
 class IngredientRecipe(models.Model):
-    ingredient = models.ForeignKey(Ingredients, on_delete=models.CASCADE, related_name='ingredientrecipe', verbose_name='Ингредиент')
+    ingredient = models.ForeignKey(
+        Ingredients,
+        on_delete=models.CASCADE,
+        related_name='ingredientrecipe',
+        verbose_name='Ингредиент'
+    )
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(default=0, verbose_name='Количество')
 
@@ -78,10 +90,14 @@ class ShoppigCart(models.Model):
 
 
 class Favorite(models.Model):
-    id_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    id_recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    id_user = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name='favorite_user')
+    id_recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE, related_name='favorite_recipe')
 
 
 class Subscription(models.Model):
-    subscriber = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='subscriber')
-    subscrib_to = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='subscrib_to')
+    subscriber = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name='subscriber')
+    subscrib_to = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name='subscrib_to')
