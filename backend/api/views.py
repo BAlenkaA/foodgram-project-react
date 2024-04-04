@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.pagination import LimitOffsetPagination, PageNumberPagination
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
@@ -21,13 +21,19 @@ from .serializers import (CustomUserSerializer, IngredientRecipe,
                           ShoppingCartFavoriteSerializer,
                           SubscriptionSerializer, TagSerializer)
 
+from rest_framework.pagination import PageNumberPagination
+
+class MyPagination(PageNumberPagination):
+    page_size = 6
+    page_size_query_param = 'limit'
+
 
 class CustomUserViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
                         mixins.RetrieveModelMixin, mixins.DestroyModelMixin,
                         viewsets.GenericViewSet):
     queryset = CustomUser.objects.all()
+    pagination_class = MyPagination
     serializer_class = CustomUserSerializer
-    pagination_class = LimitOffsetPagination
     """Кастомный Viewset Пользователя."""
 
     def get_serializer_class(self):
@@ -73,15 +79,15 @@ class CustomUserViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
                     {'message': 'recipes_limit должен быть целым числом'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        paginator = LimitOffsetPagination()
-        result_page = paginator.paginate_queryset(subscriptions, request)
         context = {
             'request': request,
             'user': request.user,
             'recipes_limit': recipes_limit
         }
-        serializer = SubscriptionSerializer(
-            result_page, many=True, read_only=True, context=context)
+        paginator = MyPagination()
+        paginated_queryset = paginator.paginate_queryset(subscriptions, request)
+        serializer = SubscriptionSerializer(paginated_queryset,
+            many=True, read_only=True, context=context)
         return paginator.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=['post', 'delete'], url_path='subscribe',
@@ -157,8 +163,8 @@ class RecipesViewSet(viewsets.ModelViewSet):
     """Viewset Рецептов."""
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    pagination_class = LimitOffsetPagination
     permission_classes = [IsAuthenticatedOrReadOnly]
+    pagination_class = MyPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipesFilter
 

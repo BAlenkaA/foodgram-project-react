@@ -201,9 +201,11 @@ class RecipeSerializer(serializers.ModelSerializer):
         for ingredient_data in ingredients_data:
             ingredient_id = ingredient_data.get('id', None)
             amount = ingredient_data.get('amount', None)
-            if amount and int(amount) <= 0:
+            if amount is None or int(amount) <= 0:
                 raise serializers.ValidationError(
-                    'Количество ингридиента должно быть больше 0')
+                    'Количество ингридиента должно быть больше 0',
+                    code=status.HTTP_400_BAD_REQUEST
+                )
             try:
                 Ingredients.objects.get(pk=ingredient_id)
             except Ingredients.DoesNotExist:
@@ -300,6 +302,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 IngredientRecipe.objects.update_or_create(
                     recipe=instance, ingredient=ingredient,
                     defaults={'amount': amount})
+        instance.save()
         return instance
 
 

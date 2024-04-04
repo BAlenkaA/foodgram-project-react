@@ -12,6 +12,7 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = 'пользователь'
         verbose_name_plural = 'Пользователи'
+        ordering = ['id']
 
 
 class Tag(models.Model):
