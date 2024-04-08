@@ -50,7 +50,7 @@ class Recipe(models.Model):
     text = models.TextField()
     ingredients = models.ManyToManyField(
         Ingredients, through='IngredientRecipe')
-    tags = models.ManyToManyField(Tag, through='RecipeTags')
+    tags = models.ManyToManyField(Tag, through='RecipeTags', verbose_name='Тэги')
     cooking_time = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now_add=False, auto_now=True)
