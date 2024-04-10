@@ -1,14 +1,13 @@
 import base64
 
 import webcolors
+from api.models import (CustomUser, Favorite, IngredientRecipe, Ingredients,
+                        Recipe, RecipeTags, ShoppigCart, Subscription, Tag)
 from django.contrib.auth.hashers import check_password
 from django.core.files.base import ContentFile
 from django.core.validators import RegexValidator
 from rest_framework import exceptions, serializers, status
 from rest_framework.validators import UniqueValidator
-
-from api.models import (CustomUser, Favorite, IngredientRecipe, Ingredients,
-                        Recipe, RecipeTags, ShoppigCart, Subscription, Tag)
 
 
 class Hex2NameColor(serializers.Field):
