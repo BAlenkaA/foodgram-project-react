@@ -74,16 +74,22 @@ class RecipeTags(models.Model):
     )
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
+    class Meta:
+        verbose_name_plural = 'Тег'
+
 
 class IngredientRecipe(models.Model):
     ingredient = models.ForeignKey(
         Ingredients,
         on_delete=models.CASCADE,
         related_name='ingredientrecipe',
-        verbose_name='Ингредиент'
+        verbose_name='Ингредиенты'
     )
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(default=0, verbose_name='Количество')
+
+    class Meta:
+        verbose_name_plural = 'Ингредиент'
 
 
 class ShoppigCart(models.Model):
