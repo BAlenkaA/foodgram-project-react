@@ -264,6 +264,9 @@ class RecipeSerializer(serializers.ModelSerializer):
         validated_data['author'] = user
         tags_data = validated_data.get('tags')
         ingredients_data = validated_data.get('ingredients')
+        serializer = self.__class__(data=validated_data)
+        if not serializer.is_valid():
+            raise ValidationError(serializer.errors)
         recipe = Recipe.objects.create(**validated_data)
         for tag_data in tags_data:
             if tag_data:
