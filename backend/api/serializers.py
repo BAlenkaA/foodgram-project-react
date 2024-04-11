@@ -263,8 +263,8 @@ class RecipeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         validated_data['author'] = user
-        tags_data = validated_data.get('tags')
-        ingredients_data = validated_data.get('ingredients')
+        tags_data = validated_data.pop('tags')
+        ingredients_data = validated_data.pop('ingredients')
         serializer = self.__class__(data=validated_data)
         if not serializer.is_valid():
             raise ValidationError(serializer.errors)
@@ -286,8 +286,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         if instance.author != self.context['request'].user:
             raise exceptions.PermissionDenied(
                 "Вы не являетесь автором этого рецепта")
-        ingredients_data = self.context['request'].data.get('ingredients')
-        tags_data = self.context['request'].data.get('tags')
+        ingredients_data = validated_data.get('ingredients')
+        tags_data = validated_data.get('tags')
         instance.image = validated_data.get('image', instance.image)
         instance.name = validated_data.get('name', instance.name)
         instance.text = validated_data.get('text', instance.text)
