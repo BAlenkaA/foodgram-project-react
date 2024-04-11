@@ -176,7 +176,13 @@ class RecipeSerializer(serializers.ModelSerializer):
                 "Поле теги обязательно для заполнения",
                 code=status.HTTP_400_BAD_REQUEST
             )
-        tags_ids = set()
+
+        if len(tags_data) != len(set(tags_data)):
+            raise serializers.ValidationError(
+                'Повторяющиеся теги в запросе',
+                code=status.HTTP_400_BAD_REQUEST
+            )
+
         for tag_id in tags_data:
             try:
                 Tag.objects.get(pk=tag_id)
@@ -186,10 +192,6 @@ class RecipeSerializer(serializers.ModelSerializer):
                     code=status.HTTP_400_BAD_REQUEST
                 )
 
-            if tag_id in tags_ids:
-                raise serializers.ValidationError(
-                    'Повторяющиеся теги в запросе')
-            tags_ids.add(tag_id)
         ingredients_data = self.context['request'].data.get('ingredients')
         if not ingredients_data:
             raise serializers.ValidationError(
