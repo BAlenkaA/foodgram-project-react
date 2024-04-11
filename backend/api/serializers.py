@@ -226,7 +226,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 )
             ingredient_ids.add(ingredient_id)
         data['tags'] = tags_data
-        data['ingredients'] = ingredient_data
+        data['ingredients'] = ingredients_data
         return data
 
     def get_is_favorited(self, obj):
