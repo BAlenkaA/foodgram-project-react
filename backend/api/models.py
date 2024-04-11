@@ -79,7 +79,7 @@ class RecipeTags(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.tag.name
+        return self.tag.verbose_name
 
     class Meta:
         verbose_name = 'тег'
@@ -91,13 +91,13 @@ class IngredientRecipe(models.Model):
         Ingredients,
         on_delete=models.CASCADE,
         related_name='ingredientrecipe',
-        verbose_name='Ингредиенты'
+        verbose_name='Ингредиент'
     )
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(default=0, verbose_name='Количество')
 
     def __str__(self):
-        return self.ingredient.name
+        return self.ingredient.verbose_name
 
     class Meta:
         verbose_name = 'ингредиент'
