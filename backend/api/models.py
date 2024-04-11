@@ -16,9 +16,11 @@ class CustomUser(AbstractUser):
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=200, unique=True)
-    color = models.CharField(max_length=7, unique=True)
-    slug = models.SlugField(max_length=200, db_index=True, unique=True)
+    name = models.CharField(
+        max_length=200, unique=True, verbose_name='Название')
+    color = models.CharField(max_length=7, unique=True, verbose_name='Цвет')
+    slug = models.SlugField(
+        max_length=200, db_index=True, unique=True, verbose_name='Слаг')
 
     def __str__(self):
         return self.name
@@ -46,13 +48,15 @@ class Recipe(models.Model):
     author = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, verbose_name='Автор')
     name = models.CharField(max_length=200, verbose_name='Название')
-    image = models.ImageField(upload_to='api/images/')
-    text = models.TextField()
+    image = models.ImageField(
+        upload_to='api/images/', verbose_name='Фото готового блюда')
+    text = models.TextField(verbose_name='Описание процесса приготовления')
     ingredients = models.ManyToManyField(
         Ingredients, through='IngredientRecipe')
     tags = models.ManyToManyField(
         Tag, through='RecipeTags', verbose_name='Тэги')
-    cooking_time = models.PositiveIntegerField(default=0)
+    cooking_time = models.PositiveIntegerField(
+        default=0, verbose_name='Время приготовления')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now_add=False, auto_now=True)
 
@@ -75,6 +79,7 @@ class RecipeTags(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
     class Meta:
+        verbose_name = 'тег'
         verbose_name_plural = 'Тег'
 
 
@@ -89,6 +94,7 @@ class IngredientRecipe(models.Model):
     amount = models.PositiveIntegerField(default=0, verbose_name='Количество')
 
     class Meta:
+        verbose_name = 'ингредиент'
         verbose_name_plural = 'Ингредиент'
 
 
