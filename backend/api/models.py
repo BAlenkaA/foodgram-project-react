@@ -84,6 +84,7 @@ class RecipeTags(models.Model):
     class Meta:
         verbose_name = 'тег'
         verbose_name_plural = 'Тег'
+        unique_together = ('tag', 'recipe')
 
 
 class IngredientRecipe(models.Model):
