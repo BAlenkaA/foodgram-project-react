@@ -226,6 +226,8 @@ class RecipeSerializer(serializers.ModelSerializer):
                     code=status.HTTP_400_BAD_REQUEST
                 )
             ingredient_ids.add(ingredient_id)
+        data['tags'] = tags_data
+        data['ingredients'] = ingredient_data
         return data
 
     def get_is_favorited(self, obj):
