@@ -7,6 +7,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.files.base import ContentFile
 from django.core.validators import RegexValidator
 from rest_framework import exceptions, serializers, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueValidator
 
 
