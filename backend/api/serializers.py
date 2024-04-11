@@ -227,6 +227,8 @@ class RecipeSerializer(serializers.ModelSerializer):
             ingredient_ids.add(ingredient_id)
         data['tags'] = tags_data
         data['ingredients'] = ingredients_data
+        user = self.context['request'].user
+        data['author'] = user
         return data
 
     def get_is_favorited(self, obj):
@@ -262,8 +264,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         )
 
     def create(self, validated_data):
-        user = self.context['request'].user
-        validated_data['author'] = user
         tags_data = validated_data.pop('tags')
         ingredients_data = validated_data.pop('ingredients')
         recipe = Recipe.objects.create(**validated_data)
