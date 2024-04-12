@@ -26,7 +26,8 @@ SECRET_KEY = 'django-insecure-4(@uknus*2rc@c$spnpfl+ty88l+lb!qeiaf9$x3m5n@n3zuxc
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'foodgram.belintsev.ru']
-
+CSRF_TRUSTED_ORIGINS = ['https://foodgram.belintsev.ru']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
