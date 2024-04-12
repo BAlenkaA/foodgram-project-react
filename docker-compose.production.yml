@@ -2,6 +2,8 @@ volumes:
   pg_data:
   static_all:
   media_volume:
+  certbot_root:
+  ssl_volume:
 
 services:
   db:
@@ -31,8 +33,16 @@ services:
     volumes:
       - static_all:/usr/share/nginx/html/
       - media_volume:/usr/share/nginx/html/media/
+      - certbot_root:/var/www/certbot/:ro
+      - ssl_volume:/etc/nginx/ssl/:ro
     ports:
       - 80:80
+      - 443:443
     depends_on:
       - backend
       - frontend
+  certbot:
+    image: certbot/cerbot:latest
+    volumes:
+      - certbot_root:/var/www/certbot/
+      - ssl_volume:/etc/letsencrypt/
