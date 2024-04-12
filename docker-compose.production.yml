@@ -42,7 +42,7 @@ services:
       - backend
       - frontend
   certbot:
-    image: alenkas/cerbot:latest
+    image: alenkas/certbot:latest
     volumes:
-      - certbot_root:/var/www/certbot/
-      - ssl_volume:/etc/letsencrypt/
+      - certbot_root:/var/www/certbot/:rw
+      - ssl_volume:/etc/letsencrypt/:rw
