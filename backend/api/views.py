@@ -197,16 +197,10 @@ class RecipesViewSet(viewsets.ModelViewSet):
         for ingredient, quantity in ingredient_quantities.items():
             data += (f'{ingredient[0].capitalize()}'
                      f' ({ingredient[1]}) - {quantity}\n')
-        file_path = 'api/temp/shopping_list.txt'
-        try:
-            with open(file_path, 'w') as file:
-                file.write(data)
             response = HttpResponse(data, content_type='text/plain')
             response['Content-Disposition'] = ('attachment; '
                                                'filename="shopping_list.txt"')
-            return response
-        finally:
-            os.remove(file_path)
+        return response
 
     @action(detail=True, methods=['post', 'delete'], url_path='shopping_cart')
     def add_and_destroy_to_shopping_cart(self, request, pk=None):
