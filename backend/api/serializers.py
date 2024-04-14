@@ -169,8 +169,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate(self, data):
-        tags_data = self.context['request'].data.get('tags')
+    def validate_tags(self, tags_data):
         if not tags_data:
             raise serializers.ValidationError(
                 "Поле теги обязательно для заполнения",
@@ -185,14 +184,22 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         for tag_id in tags_data:
             try:
+                int(tag_id)
+            except ValueError:
+                raise serializers.ValidationError(
+                    {"tags": "Тег должен иметь тип Int"},
+                    code=status.HTTP_400_BAD_REQUEST
+                )
+            try:
                 Tag.objects.get(pk=tag_id)
             except Tag.DoesNotExist:
                 raise serializers.ValidationError(
                     "Тег с указанным ID не найден",
                     code=status.HTTP_400_BAD_REQUEST
                 )
+        return tags_data
 
-        ingredients_data = self.context['request'].data.get('ingredients')
+    def validate_ingredients(self, ingredients_data):
         if not ingredients_data:
             raise serializers.ValidationError(
                 'Поле ингредиенты обязательно для заполнения',
@@ -225,10 +232,16 @@ class RecipeSerializer(serializers.ModelSerializer):
                     code=status.HTTP_400_BAD_REQUEST
                 )
             ingredient_ids.add(ingredient_id)
-        data['tags'] = tags_data
-        data['ingredients'] = ingredients_data
-        user = self.context['request'].user
-        data['author'] = user
+        return ingredients_data
+
+    def validate(self, data):
+        data['tags'] = self.validate_tags(
+            self.context['request'].data.get('tags')
+        )
+        data['ingredients'] = self.validate_ingredients(
+            self.context['request'].data.get('ingredients')
+        )
+        data['author'] = self.context['request'].user
         return data
 
     def get_is_favorited(self, obj):
