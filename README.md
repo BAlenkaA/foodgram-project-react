@@ -4,6 +4,7 @@
 
 ![Main Foodgram Workflow](https://github.com/BAlenkaA/foodgram-project-react/actions/workflows/main.yml/badge.svg?event=push)
 
+Проект опубликован по адресу https://foodgram.belintsev.ru  
 В данном проекте происходит развертывание приложения на удаленном сервере с использованием Docker.
 Foodgramm — сайт, на котором пользователи будут публиковать рецепты, добавлять чужие рецепты в избранное и
 подписываться на публикации других авторов. Пользователям сайта также будет доступен сервис «Список покупок».
