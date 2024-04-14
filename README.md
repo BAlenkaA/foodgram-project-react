@@ -42,7 +42,7 @@ sudo apt install docker-compose-plugin
   6. SECRET_KEY
   7. DEBUG
   8. ALLOWED_HOSTS=127.0.0.1,localhost,ваш_домен
-В вашем гитхабе в проекте настройте Secret. Там необходимо прописать следующие :
+- В вашем гитхабе в проекте настройте Secret. Там необходимо прописать следующие :
   1. DOCKER_PASSWORD
   2. DOCKER_USERNAME
   3. HOST
