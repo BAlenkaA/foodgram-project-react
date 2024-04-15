@@ -1,23 +1,22 @@
-from collections import defaultdict
-
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 
 from .filters import RecipesFilter
-from .models import (CustomUser, Favorite, Ingredients, Recipe, ShoppigCart,
+from .models import (CustomUser, Favorite, Ingredient, Recipe, ShoppigCart,
                      Subscription, Tag)
 from .permissions import IsOwner
-from .serializers import (CustomUserSerializer, IngredientRecipe,
-                          IngredientSerializer, PasswordChangeSerializer,
-                          RecipeSerializer, RegisterSerializer,
-                          ShoppingCartFavoriteSerializer,
+from .serializers import (CustomUserSerializer, IngredientSerializer,
+                          PasswordChangeSerializer, RecipeSerializer,
+                          RegisterSerializer, ShoppingCartFavoriteSerializer,
                           SubscriptionSerializer, TagSerializer)
 
 
@@ -29,10 +28,10 @@ class CustomNumberPaginator(PageNumberPagination):
 class CustomUserViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
                         mixins.RetrieveModelMixin, mixins.DestroyModelMixin,
                         viewsets.GenericViewSet):
+    """Кастомный Viewset Пользователя."""
     queryset = CustomUser.objects.all()
     pagination_class = CustomNumberPaginator
     serializer_class = CustomUserSerializer
-    """Кастомный Viewset Пользователя."""
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -62,21 +61,23 @@ class CustomUserViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
             status=status.HTTP_204_NO_CONTENT
         )
 
+    def get_recipes_limit(self, request):
+        recipes_limit = request.query_params.get('recipes_limit', None)
+        if recipes_limit is not None:
+            try:
+                recipes_limit = int(recipes_limit)
+            except ValueError:
+                raise ValidationError(
+                    'recipes_limit должен быть целым числом')
+        return recipes_limit
+
     @action(detail=False, methods=['get'], url_path='subscriptions',
             permission_classes=[IsAuthenticated])
     def get_user_subscriptions(self, request):
         subscriptions = CustomUser.objects.filter(
             pk__in=request.user.subscriber.all().values_list(
                 'subscrib_to', flat=True))
-        recipes_limit = request.query_params.get('recipes_limit', None)
-        if recipes_limit is not None:
-            try:
-                recipes_limit = int(recipes_limit)
-            except ValueError:
-                return Response(
-                    {'message': 'recipes_limit должен быть целым числом'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        recipes_limit = self.get_recipes_limit(request)
         context = {
             'request': request,
             'user': request.user,
@@ -108,32 +109,23 @@ class CustomUserViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
                 )
             Subscription.objects.create(
                 subscriber=subscriber, subscrib_to=subscrib_to)
-            recipes_limit = request.query_params.get('recipes_limit', None)
-            if recipes_limit is not None:
-                try:
-                    recipes_limit = int(recipes_limit)
-                except ValueError:
-                    return Response(
-                        {'message': 'recipes_limit должен быть целым числом'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+            recipes_limit = self.get_recipes_limit(request)
             serializer = SubscriptionSerializer(
                 subscrib_to, context={
                     'user': subscriber, 'recipes_limit': recipes_limit})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            subscribe_item = Subscription.objects.filter(
-                subscriber=subscriber, subscrib_to=subscrib_to)
-            if not subscribe_item:
-                return Response(
-                    {'message': 'Вы не подписаны на данного пользователя'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            subscribe_item.delete()
+        subscribe_item = Subscription.objects.filter(
+            subscriber=subscriber, subscrib_to=subscrib_to)
+        if not subscribe_item.exists():
             return Response(
-                {'message': 'Вы успешно отписались от пользователя'},
-                status=status.HTTP_204_NO_CONTENT
+                {'message': 'Вы не подписаны на данного пользователя'},
+                status=status.HTTP_400_BAD_REQUEST
             )
+        subscribe_item.delete()
+        return Response(
+            {'message': 'Вы успешно отписались от пользователя'},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
@@ -147,13 +139,13 @@ class TagViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
 class IngredientsViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
                          viewsets.GenericViewSet):
     """Кастомный Viewset Ингридиентов."""
-    queryset = Ingredients.objects.all()
+    queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        name = self.request.query_params.get('name', None)
+        name = self.request.query_params.get('name')
         if name:
             queryset = queryset.filter(name__istartswith=name)
         return queryset
@@ -163,46 +155,42 @@ class RecipesViewSet(viewsets.ModelViewSet):
     """Viewset Рецептов."""
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwner]
     pagination_class = CustomNumberPaginator
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipesFilter
 
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if not IsOwner().has_object_permission(request, self, instance):
-            return Response(
-                {"detail": "Вы не являетесь автором этого рецепта."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=False, methods=['get'], url_path='download_shopping_cart')
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='download_shopping_cart',
+        permission_classes=[IsAuthenticated]
+    )
     def get_a_list_to_shopping_cart(self, request):
-        shopping_list = ShoppigCart.objects.filter(user_id=request.user)
-        ingredient_quantities = defaultdict(int)
-        for item in shopping_list:
-            recipe = item.recipe_id
-            ingredients_info = IngredientRecipe.objects.filter(
-                recipe=recipe).values_list(
-                'ingredient__name', 'ingredient__measurement_unit',
-                'amount')
-            for ingredient_info in ingredients_info:
-                name, measurement_unit, amount = ingredient_info
-                print(name, measurement_unit, amount)
-                ingredient_quantities[(name, measurement_unit)] += amount
+        shopping_list = ShoppigCart.objects.filter(user=request.user)
+        ingredient_quantities = shopping_list.values(
+            'recipe__ingredientrecipe__ingredient__name',
+            'recipe__ingredientrecipe__ingredient__measurement_unit'
+        ).annotate(
+            total_amount=Sum('recipe__ingredientrecipe__amount')
+        ).values_list(
+            'recipe__ingredientrecipe__ingredient__name',
+            'recipe__ingredientrecipe__ingredient__measurement_unit',
+            'total_amount'
+        )
+
         data = ''
-        for ingredient, quantity in ingredient_quantities.items():
-            data += (f'{ingredient[0].capitalize()}'
-                     f' ({ingredient[1]}) - {quantity}\n')
-            response = HttpResponse(data, content_type='text/plain')
-            response['Content-Disposition'] = ('attachment; '
-                                               'filename="shopping_list.txt"')
+        for ingredient_info in ingredient_quantities:
+            name, measurement_unit, amount = ingredient_info
+            data += f'{name.capitalize()} ({measurement_unit}) - {amount}\n'
+
+        response = HttpResponse(data, content_type='text/plain')
+        response['Content-Disposition'] = ('attachment; '
+                                           'filename="shopping_list.txt"')
         return response
 
-    @action(detail=True, methods=['post', 'delete'], url_path='shopping_cart')
-    def add_and_destroy_to_shopping_cart(self, request, pk=None):
+    def add_and_destroy(
+            self, request, pk=None, Model=None, message=''):
         user = request.user
         if request.method == 'POST':
             if not Recipe.objects.filter(pk=pk).exists():
@@ -211,72 +199,44 @@ class RecipesViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             recipe = self.get_object()
-            if ShoppigCart.objects.filter(
-                    user_id=user, recipe_id=recipe).exists():
+            if Model.objects.filter(user=user, recipe=recipe).exists():
                 return Response(
-                    {'message': 'Рецепт уже есть в списке покупок'},
+                    {'message': f'Рецепт уже есть в {message}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            cart_item = ShoppigCart.objects.create(
-                user_id=user, recipe_id=recipe)
+            Model.objects.create(user=user, recipe=recipe)
             serializer = ShoppingCartFavoriteSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            if not Recipe.objects.filter(pk=pk).exists():
+            recipe = get_object_or_404(Recipe, id=pk)
+            item = Model.objects.filter(user=user, recipe=recipe)
+            if not item.exists():
                 return Response(
-                    {'message': 'Нет такого рецепта'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            recipe = self.get_object()
-            cart_item = ShoppigCart.objects.filter(
-                user_id=user, recipe_id=recipe)
-            if not cart_item:
-                return Response(
-                    {'message': 'Такого рецепта нет в списке покупок'},
+                    {'message': f'Такого рецепта нет в {message}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            cart_item.delete()
+            item.delete()
             return Response(
-                {'message': 'Рецепт успешно удален из списка покупок'},
+                {'message': 'Рецепт успешно удален'},
                 status=status.HTTP_204_NO_CONTENT
             )
 
-    @action(detail=True, methods=['post', 'delete'], url_path='favorite')
+    @action(
+        detail=True,
+        methods=['post', 'delete'],
+        url_path='shopping_cart',
+        permission_classes=[IsAuthenticated]
+    )
+    def add_and_destroy_to_shopping_cart(self, request, pk=None):
+        return self.add_and_destroy(
+            request, pk=pk, Model=ShoppigCart, message='списке покупок')
+
+    @action(
+        detail=True,
+        methods=['post', 'delete'],
+        url_path='favorite',
+        permission_classes=[IsAuthenticated]
+    )
     def add_and_destroy_to_favorite(self, request, pk=None):
-        user = request.user
-        if request.method == 'POST':
-            if not Recipe.objects.filter(pk=pk).exists():
-                return Response(
-                    {'message': 'Нет такого рецепта'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            recipe = self.get_object()
-            if Favorite.objects.filter(
-                    id_user=user, id_recipe=recipe).exists():
-                return Response(
-                    {'message': 'Рецепт уже есть в избранном'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            favorite_item = Favorite.objects.create(
-                id_user=user, id_recipe=recipe)
-            serializer = ShoppingCartFavoriteSerializer(recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            if not Recipe.objects.filter(pk=pk).exists():
-                return Response(
-                    {'message': 'Нет такого рецепта'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            recipe = self.get_object()
-            favorite_item = Favorite.objects.filter(
-                id_user=user, id_recipe=recipe)
-            if not favorite_item:
-                return Response(
-                    {'message': 'Такого рецепта нет в избранном'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            favorite_item.delete()
-            return Response(
-                {'message': 'Рецепт успешно удален из избранного'},
-                status=status.HTTP_204_NO_CONTENT
-            )
+        return self.add_and_destroy(
+            request, pk=pk, Model=Favorite, message='избранном')

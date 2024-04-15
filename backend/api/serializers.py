@@ -1,37 +1,11 @@
-import base64
-
-import webcolors
-from api.models import (CustomUser, Favorite, IngredientRecipe, Ingredients,
-                        Recipe, RecipeTags, ShoppigCart, Subscription, Tag)
 from django.contrib.auth.hashers import check_password
-from django.core.files.base import ContentFile
 from django.core.validators import RegexValidator
-from rest_framework import exceptions, serializers, status
+from rest_framework import serializers, status
 from rest_framework.validators import UniqueValidator
 
-
-class Hex2NameColor(serializers.Field):
-    """Сериализатор hex-формата цвета."""
-    def to_representation(self, value):
-        return value
-
-    def to_internal_value(self, data):
-        try:
-            data = webcolors.hex_to_name(data)
-        except ValueError:
-            raise serializers.ValidationError('Для этого цвета нет имени')
-        return data
-
-
-class Base64ImageField(serializers.ImageField):
-    """Сериализатор форматирования изображения."""
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
-
-        return super().to_internal_value(data)
+from api.fields import Base64ImageField, Hex2NameColor
+from api.models import (CustomUser, Favorite, Ingredient, IngredientRecipe,
+                        Recipe, RecipeTag, ShoppigCart, Subscription, Tag)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -125,14 +99,14 @@ class RecipeTagsSerializer(serializers.ModelSerializer):
     slug = serializers.SlugField(source='tag.slug')
 
     class Meta:
-        model = RecipeTags
+        model = RecipeTag
         fields = ('id', 'name', 'color', 'slug')
 
 
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализатор модели ингредиентов."""
     class Meta:
-        model = Ingredients
+        model = Ingredient
         fields = ('id', 'name', 'measurement_unit')
 
 
@@ -151,7 +125,7 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
 class RecipeSerializer(serializers.ModelSerializer):
     """Сериализатор рецептов."""
     tags = RecipeTagsSerializer(
-        source='recipetags_set', many=True, read_only=True)
+        source='recipetag_set', many=True, read_only=True)
     ingredients = IngredientRecipeSerializer(
         source='ingredientrecipe_set', many=True, read_only=True)
     author = CustomUserSerializer(
@@ -215,8 +189,8 @@ class RecipeSerializer(serializers.ModelSerializer):
                     code=status.HTTP_400_BAD_REQUEST
                 )
             try:
-                Ingredients.objects.get(pk=ingredient_id)
-            except Ingredients.DoesNotExist:
+                Ingredient.objects.get(pk=ingredient_id)
+            except Ingredient.DoesNotExist:
                 raise serializers.ValidationError(
                     'Ингредиент с указанным ID не найден',
                     code=status.HTTP_400_BAD_REQUEST
@@ -244,22 +218,18 @@ class RecipeSerializer(serializers.ModelSerializer):
         data['author'] = self.context['request'].user
         return data
 
-    def get_is_favorited(self, obj):
+    def is_object_in_model(self, obj, model):
         user = self.context.get('request').user
         if user.is_authenticated:
-            id_user = self.context.get('request').user
-            id_recipe = obj.id
-            return Favorite.objects.filter(
-                id_user=id_user, id_recipe=id_recipe).exists()
+            recipe = obj.id
+            return model.objects.filter(user=user, recipe=recipe).exists()
         return False
 
+    def get_is_favorited(self, obj):
+        return self.is_object_in_model(obj, Favorite)
+
     def get_is_in_shopping_cart(self, obj):
-        user = self.context.get('request').user
-        if user.is_authenticated:
-            recipe_id = obj.id
-            return ShoppigCart.objects.filter(
-                user_id=user, recipe_id=recipe_id).exists()
-        return False
+        return self.is_object_in_model(obj, ShoppigCart)
 
     class Meta:
         model = Recipe
@@ -276,49 +246,39 @@ class RecipeSerializer(serializers.ModelSerializer):
             'cooking_time'
         )
 
+    def create_or_update_tags_and_ingredients(
+            self, recipe, tags_data, ingredients_data):
+        recipe_tags_to_create = []
+        for tag_data in tags_data:
+            if tag_data:
+                recipe_tags_to_create.append(RecipeTag(
+                    tag_id=tag_data, recipe=recipe))
+        RecipeTag.objects.bulk_create(recipe_tags_to_create)
+        ingredients_recipe_to_create = []
+        for ingredient_data in ingredients_data:
+            ingredient_id = ingredient_data.get('id', None)
+            amount = ingredient_data.get('amount', 0)
+            if ingredient_id:
+                ingredients_recipe_to_create.append(IngredientRecipe(
+                    recipe=recipe, ingredient_id=ingredient_id, amount=amount))
+        IngredientRecipe.objects.bulk_create(ingredients_recipe_to_create)
+
     def create(self, validated_data):
         tags_data = validated_data.pop('tags')
         ingredients_data = validated_data.pop('ingredients')
         recipe = Recipe.objects.create(**validated_data)
-        for tag_data in tags_data:
-            if tag_data:
-                tag = Tag.objects.get(pk=tag_data)
-                RecipeTags.objects.create(tag=tag, recipe=recipe)
-        for ingredient_data in ingredients_data:
-            ingredient_id = ingredient_data.get('id', None)
-            amount = ingredient_data.get('amount', 0)
-            if ingredient_id:
-                ingredient = Ingredients.objects.get(pk=ingredient_id)
-                IngredientRecipe.objects.create(
-                    recipe=recipe, ingredient=ingredient, amount=amount)
+        self.create_or_update_tags_and_ingredients(
+            recipe, tags_data, ingredients_data)
         return recipe
 
     def update(self, instance, validated_data):
-        if instance.author != self.context['request'].user:
-            raise exceptions.PermissionDenied(
-                "Вы не являетесь автором этого рецепта")
-        ingredients_data = validated_data.get('ingredients')
-        tags_data = validated_data.get('tags')
-        instance.image = validated_data.get('image', instance.image)
-        instance.name = validated_data.get('name', instance.name)
-        instance.text = validated_data.get('text', instance.text)
-        instance.cooking_time = validated_data.get(
-            'cooking_time', instance.cooking_time)
+        tags_data = validated_data.pop('tags')
+        ingredients_data = validated_data.pop('ingredients')
         instance.tags.clear()
-        for tag_data in tags_data:
-            if tag_data:
-                tag = Tag.objects.get(pk=tag_data)
-                RecipeTags.objects.update_or_create(tag=tag, recipe=instance)
         instance.ingredients.clear()
-        for ingredient_data in ingredients_data:
-            ingredient_id = ingredient_data.get('id', None)
-            amount = ingredient_data.get('amount', 0)
-            if ingredient_id:
-                ingredient = Ingredients.objects.get(pk=ingredient_id)
-                IngredientRecipe.objects.update_or_create(
-                    recipe=instance, ingredient=ingredient,
-                    defaults={'amount': amount})
-        instance.save()
+        self.create_or_update_tags_and_ingredients(
+            instance, tags_data, ingredients_data)
+        instance = super().update(instance, validated_data)
         return instance
 
 

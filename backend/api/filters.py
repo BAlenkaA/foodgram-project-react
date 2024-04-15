@@ -20,7 +20,7 @@ class RecipesFilter(filters.FilterSet):
         if value and self.request.user.is_authenticated:
             user = self.request.user
             favorited_recipes = Favorite.objects.filter(
-                id_user=user).values_list('id_recipe', flat=True)
+                user=user).values_list('recipe', flat=True)
             queryset = queryset.filter(id__in=favorited_recipes)
         return queryset
 
@@ -28,6 +28,6 @@ class RecipesFilter(filters.FilterSet):
         if value and self.request.user.is_authenticated:
             user = self.request.user
             recipes_in_shopping_cart = ShoppigCart.objects.filter(
-                user_id=user).values_list('recipe_id', flat=True)
+                user=user).values_list('recipe', flat=True)
             queryset = queryset.filter(id__in=recipes_in_shopping_cart)
         return queryset
