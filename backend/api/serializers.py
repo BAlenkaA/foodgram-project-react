@@ -1,11 +1,10 @@
+from api.fields import Base64ImageField, Hex2NameColor
+from api.models import (CustomUser, Favorite, Ingredient, IngredientRecipe,
+                        Recipe, RecipeTag, ShoppigCart, Subscription, Tag)
 from django.contrib.auth.hashers import check_password
 from django.core.validators import RegexValidator
 from rest_framework import serializers, status
 from rest_framework.validators import UniqueValidator
-
-from api.fields import Base64ImageField, Hex2NameColor
-from api.models import (CustomUser, Favorite, Ingredient, IngredientRecipe,
-                        Recipe, RecipeTag, ShoppigCart, Subscription, Tag)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
