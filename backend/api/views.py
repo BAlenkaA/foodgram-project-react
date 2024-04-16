@@ -5,7 +5,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
@@ -13,16 +12,12 @@ from rest_framework.response import Response
 from .filters import RecipesFilter
 from .models import (CustomUser, Favorite, Ingredient, Recipe, ShoppigCart,
                      Subscription, Tag)
+from .paginators import CustomNumberPaginator
 from .permissions import IsOwner
 from .serializers import (CustomUserSerializer, IngredientSerializer,
                           PasswordChangeSerializer, RecipeSerializer,
                           RegisterSerializer, ShoppingCartFavoriteSerializer,
                           SubscriptionSerializer, TagSerializer)
-
-
-class CustomNumberPaginator(PageNumberPagination):
-    page_size = 6
-    page_size_query_param = 'limit'
 
 
 class CustomUserViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -207,19 +202,18 @@ class RecipesViewSet(viewsets.ModelViewSet):
             Model.objects.create(user=user, recipe=recipe)
             serializer = ShoppingCartFavoriteSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            recipe = get_object_or_404(Recipe, id=pk)
-            item = Model.objects.filter(user=user, recipe=recipe)
-            if not item.exists():
-                return Response(
-                    {'message': f'Такого рецепта нет в {message}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            item.delete()
+        recipe = get_object_or_404(Recipe, id=pk)
+        item = Model.objects.filter(user=user, recipe=recipe)
+        if not item.exists():
             return Response(
-                {'message': 'Рецепт успешно удален'},
-                status=status.HTTP_204_NO_CONTENT
+                {'message': f'Такого рецепта нет в {message}'},
+                status=status.HTTP_400_BAD_REQUEST
             )
+        item.delete()
+        return Response(
+            {'message': 'Рецепт успешно удален'},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
     @action(
         detail=True,

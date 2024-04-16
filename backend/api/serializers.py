@@ -42,18 +42,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
+class IsSubscribedField(serializers.SerializerMethodField):
+    def to_representation(self, obj):
+        user = self.context.get('user')
+        if user and user.is_authenticated:
+            return Subscription.objects.filter(
+                subscriber=user, subscrib_to=obj).exists()
+        return False
+
+
 class CustomUserSerializer(serializers.ModelSerializer):
     """Сериализатор модели пользователя."""
-    is_subscribed = serializers.SerializerMethodField()
-
-    def get_is_subscribed(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            subscriber = request.user
-            subscrib_to = obj
-            return Subscription.objects.filter(
-                subscriber=subscriber, subscrib_to=subscrib_to).exists()
-        return False
+    is_subscribed = IsSubscribedField()
 
     class Meta:
         model = CustomUser
@@ -293,7 +293,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     """Сериализатор подписок."""
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
-    is_subscribed = serializers.SerializerMethodField()
+    is_subscribed = IsSubscribedField()
 
     def get_recipes(self, obj):
         recipes_limit = self.context.get('recipes_limit')
@@ -301,13 +301,6 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         if recipes_limit is not None:
             recipes_queryset = recipes_queryset[:recipes_limit]
         return ShoppingCartFavoriteSerializer(recipes_queryset, many=True).data
-
-    def get_is_subscribed(self, obj):
-        user = self.context.get('user')
-        if user and user.is_authenticated:
-            return Subscription.objects.filter(
-                subscriber=user, subscrib_to=obj).exists()
-        return False
 
     class Meta:
         model = CustomUser
